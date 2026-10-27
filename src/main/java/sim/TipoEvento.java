@@ -1,6 +1,6 @@
 package sim;
 
-public enum EventType {
+public enum TipoEvento {
     ARRIVAL, 
     DEPARTURE
 }

@@ -1,10 +1,10 @@
 package sim;
 import java.util.Random;
 
-public class RandomGen {
+public class GeneratoreRandom {
     private final Random rng;
 
-    public RandomGen(long seed){
+    public GeneratoreRandom(long seed){
         this.rng=new Random(seed);
     }
 

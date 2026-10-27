@@ -8,12 +8,12 @@ import com.google.gson.Gson;
 
 public class Config {
     public double mu;
-    public int[] cValues;
-    public double[] lambdaValues;
-    public double simulationTime;
-    public double warmupTime;
-    public int replications;
-    public long seed;
+    public int[] valoriC;
+    public double[] valoriLambda;
+    public double tempoSimulazione;
+    public double tempoWarmup;
+    public int ripetizioni;
+    public long seme;
     public int maxState;
     public String outputPath;
 
@@ -27,13 +27,13 @@ public class Config {
         if (mu<=0) {
             throw new IllegalArgumentException("Mu deve essere > 0");
         }
-        if (warmupTime>simulationTime) {
+        if (tempoWarmup>tempoSimulazione) {
             throw new IllegalArgumentException("Warmup Time deve essere < di Simulation Time");
         }
-        if (replications<1) {
+        if (ripetizioni<1) {
             throw new IllegalArgumentException("Replications deve essere almeno 1");
         }
-        for (double lamba : lambdaValues) {
+        for (double lamba : valoriLambda) {
             if (lamba<0) {
                 throw new IllegalArgumentException("Ogni Lamba deve essere > 0");
             }
@@ -41,7 +41,7 @@ public class Config {
 
         int maxC=0;
 
-        for (int c : cValues) {
+        for (int c : valoriC) {
             Math.max(maxC, c);
             if (c<1) {
                 throw new IllegalArgumentException("Ogni C deve essere >= 1");

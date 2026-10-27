@@ -1,10 +1,10 @@
 package sim;
 
-import com.google.gson.Gson;
-
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+
+import com.google.gson.Gson;
 
 public class Config {
     public double mu;
@@ -17,7 +17,7 @@ public class Config {
     public int maxState;
     public String outputPath;
 
-    public static Config load(String path) throws IOException{
+    public Config load(String path) throws IOException{
         try(Reader reader = new FileReader(path)){
             return new Gson().fromJson(reader, Config.class);
         }

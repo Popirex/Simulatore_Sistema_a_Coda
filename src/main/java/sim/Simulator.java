@@ -5,17 +5,21 @@ import java.util.PriorityQueue;
 
 public class Simulator {
 
-    Config config;
-    RandomGen generatore;
-    PriorityQueue<Event> listaEventi;
-    Queue<Customer> codaAttesa;
-    int serverOccupati;
-    double clock;
-    int idProssimoCustomer;
-    boolean statoWarmup;
-    Statistics stat;
+    private Config config;
+    private RandomGen generatore;
+    private PriorityQueue<Event> listaEventi;
+    private Queue<Customer> codaAttesa;
+    private int serverOccupati;
+    private double clock;
+    private int idProssimoCustomer;
+    private boolean statoWarmup;
+    private Statistics stat;
 
-    
+
+    public Simulator(Config conf, double lambda, int c, long seed){
+        
+    }
+
     
 
     

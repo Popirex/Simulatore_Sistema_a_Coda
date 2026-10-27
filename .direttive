@@ -1,0 +1,350 @@
+# Simulatore a eventi di un sistema a coda M/M/c
+
+Progetto per il corso di Reti di Telecomunicazioni.
+Simulatore **ad eventi discreti** in Java di un sistema M/M/c (coda infinita, nessun blocco), con parametri in input da JSON, risultati in output su JSON e grafici/confronto con la teoria in Python (matplotlib).
+
+---
+
+## 1. Obiettivi
+
+- Simulare un sistema M/M/c: arrivi Poisson (rate λ), servizi esponenziali (rate μ per server), c server, coda FIFO illimitata.
+- Stimare: **Pk, Ls, Lq, Ws, Wq, P(coda)**. La probabilità di blocco non esiste (coda infinita).
+- Confrontare simulazione e teoria al variare di λ (e di c).
+
+**Condizione di stabilità:** ρ = λ / (c·μ) < 1. Il programma deve rifiutare (errore chiaro) configurazioni con ρ ≥ 1.
+
+---
+
+## 2. Architettura generale
+
+```
+config.json ──> [Java: simulatore] ──> results/results.json ──> [Python: plot.py] ──> results/*.png
+```
+
+- Java: legge la config, esegue tutte le simulazioni, scrive **un solo** JSON di output.
+- Python: legge il JSON, calcola le formule teoriche, produce i grafici. **Tutta la teoria sta in Python**, Java non la calcola.
+
+---
+
+## 3. Struttura del progetto
+
+```
+mmc-sim/
+├── pom.xml                  (o build.gradle) con dipendenza Gson
+├── config.json
+├── src/main/java/sim/
+│   ├── Main.java
+│   ├── Config.java
+│   ├── EventType.java
+│   ├── Event.java
+│   ├── Customer.java
+│   ├── RandomGen.java
+│   ├── Simulator.java
+│   ├── Statistics.java
+│   ├── RunResult.java
+│   └── Results.java
+├── results/
+│   └── results.json         (generato)
+└── plot.py
+```
+
+---
+
+## 4. File di configurazione (`config.json`)
+
+```json
+{
+  "mu": 1.0,
+  "cValues": [1, 2, 4],
+  "lambdaValues": [0.2, 0.4, 0.6, 0.8, 0.9],
+  "simulationTime": 100000.0,
+  "warmupTime": 5000.0,
+  "replications": 10,
+  "seed": 42,
+  "maxState": 50,
+  "outputPath": "results/results.json"
+}
+```
+
+| Campo | Significato |
+|---|---|
+| `mu` | rate di servizio di **ogni** server |
+| `cValues` | lista di numeri di server da provare |
+| `lambdaValues` | lista di rate di arrivo da provare |
+| `simulationTime` | durata di ogni replica (in unità di tempo simulato, warmup incluso) |
+| `warmupTime` | periodo iniziale da scartare |
+| `replications` | numero di repliche indipendenti per ogni coppia (λ, c) |
+| `seed` | seed base per la riproducibilità |
+| `maxState` | stato massimo tracciato per Pk (l'ultimo bucket raccoglie "≥ maxState") |
+| `outputPath` | dove scrivere il JSON dei risultati |
+
+`Main` esegue il **prodotto cartesiano** `cValues × lambdaValues`, **saltando** (con avviso a console) le coppie con ρ ≥ 1.
+Per un singolo esperimento basta mettere una lista con un solo elemento.
+
+---
+
+## 5. Classi: specifica dettagliata
+
+### 5.1 `EventType` (enum)
+Valori: `ARRIVAL`, `DEPARTURE`.
+
+### 5.2 `Event` (implements `Comparable<Event>`)
+
+**Campi (final):**
+- `double time`: istante dell'evento
+- `EventType type`
+- `Customer customer`: cliente coinvolto (per `ARRIVAL` può essere il cliente appena creato)
+- `long seq`: numero progressivo, serve solo come **spareggio** deterministico
+
+**`compareTo`:** ordina per `time` crescente, a parità di tempo per `seq` crescente.
+
+### 5.3 `Customer`
+
+**Campi:**
+- `int id`
+- `double arrivalTime`
+- `double serviceStartTime` (inizializzato a -1 finché non entra in servizio)
+- `double departureTime` (idem)
+
+**Metodi di comodo:**
+- `waitingTime()` → `serviceStartTime - arrivalTime`
+- `systemTime()` → `departureTime - arrivalTime`
+
+### 5.4 `RandomGen`
+
+**Campi:** `Random rng`.
+
+**Metodi:**
+- costruttore `RandomGen(long seed)`
+- `double nextExp(double rate)` → `-Math.log(1.0 - rng.nextDouble()) / rate`
+
+Usare `1 - nextDouble()` evita `log(0)`. Ogni replica crea il **proprio** `RandomGen` con seed `config.seed + indiceReplica` (e meglio ancora un offset diverso per ogni coppia λ/c, ad esempio sommando un contatore globale di run).
+
+### 5.5 `Config`
+
+POJO che rispecchia il JSON (campi della sezione 4). Deve avere:
+- `static Config load(String path)` (lettura con Gson)
+- `void validate()` che controlla: `mu > 0`, `c ≥ 1` per ogni valore, `lambda > 0`, `warmupTime < simulationTime`, `replications ≥ 1`, `maxState ≥ max(cValues)`
+
+### 5.6 `Statistics`
+
+Raccoglie tutto ciò che serve a calcolare le metriche **di una singola replica**.
+
+**Campi:**
+- `double lastEventTime`: istante dell'ultimo aggiornamento
+- `double areaNumInSystem`: ∫ N(t) dt
+- `double areaNumInQueue`: ∫ Nq(t) dt
+- `double[] timeInState` di dimensione `maxState + 1`: tempo trascorso con k clienti nel sistema (indice `maxState` = "≥ maxState")
+- `double sumWaitingTime`, `double sumSystemTime`
+- `int completedCustomers`: clienti usciti dal sistema (contati per Ws, Wq)
+- `int customersWhoWaited`: clienti con `waitingTime > 0` (per P(coda))
+- `int arrivalsCounted`: clienti arrivati dopo il warmup
+- `double observationStart`: istante in cui è finito il warmup
+
+**Metodi:**
+- `void update(double clock, int numInSystem, int numInQueue)`
+  - `dt = clock - lastEventTime`
+  - `areaNumInSystem += numInSystem * dt`
+  - `areaNumInQueue += numInQueue * dt`
+  - `timeInState[min(numInSystem, maxState)] += dt`
+  - `lastEventTime = clock`
+  - **Va chiamato PRIMA di modificare lo stato**, perché lo stato valido nell'intervallo `dt` è quello precedente all'evento.
+- `void resetAtWarmup(double clock)`: azzera tutti gli accumulatori e imposta `observationStart = clock` e `lastEventTime = clock`.
+- `void recordDeparture(Customer c)`: se il cliente è stato contato (arrivato dopo il warmup) aggiorna `sumWaitingTime`, `sumSystemTime`, `completedCustomers`, e `customersWhoWaited` se ha atteso.
+- `RunResult computeResults(double endTime)`: calcola le metriche (vedi sotto).
+
+**Formule (con `T = endTime - observationStart`):**
+
+| Metrica | Formula |
+|---|---|
+| Ls | `areaNumInSystem / T` |
+| Lq | `areaNumInQueue / T` |
+| Ws | `sumSystemTime / completedCustomers` |
+| Wq | `sumWaitingTime / completedCustomers` |
+| P(coda) | `customersWhoWaited / completedCustomers` |
+| Pk[k] | `timeInState[k] / T` |
+
+**Gestione del warmup:** il modo più semplice è chiamare `resetAtWarmup` la prima volta che il clock supera `warmupTime`. I clienti **arrivati prima** del warmup vengono ignorati nelle statistiche per cliente (usare un flag `counted` in `Customer`, oppure confrontare `arrivalTime >= observationStart`).
+
+### 5.7 `Simulator`
+
+**Campi:**
+- `Config config`, parametri della run (`double lambda`, `double mu`, `int c`)
+- `RandomGen rng`
+- `PriorityQueue<Event> eventList` (future event list)
+- `Queue<Customer> waitingQueue` (`ArrayDeque`, FIFO)
+- `int busyServers`
+- `double clock`
+- `int nextCustomerId`, `long nextSeq`
+- `boolean warmupDone`
+- `Statistics stats`
+
+**Metodi:**
+- costruttore `Simulator(Config, double lambda, int c, long seed)`
+- `RunResult run()`
+- `private void handleArrival(Event e)`
+- `private void handleDeparture(Event e)`
+- `private void schedule(EventType, double time, Customer)`: crea l'evento con `seq` progressivo e lo inserisce nella lista
+- `private int numInSystem()` → `busyServers + waitingQueue.size()`
+
+**`run()`:**
+```
+clock = 0; stato vuoto
+programma il primo ARRIVAL a tempo nextExp(lambda)
+finché eventList non è vuota:
+    e = eventList.poll()
+    se e.time > simulationTime: esci dal ciclo
+    se !warmupDone e e.time >= warmupTime:
+        stats.update(warmupTime, ...)   // chiude l'intervallo fino al warmup
+        stats.resetAtWarmup(warmupTime)
+        warmupDone = true
+    stats.update(e.time, numInSystem(), waitingQueue.size())
+    clock = e.time
+    gestisci l'evento in base al tipo
+stats.update(simulationTime, ...)       // chiude l'ultimo intervallo
+return stats.computeResults(simulationTime)
+```
+
+**`handleArrival`:**
+```
+programma il prossimo ARRIVAL a clock + nextExp(lambda)
+crea Customer con arrivalTime = clock
+se busyServers < c:
+    busyServers++
+    customer.serviceStartTime = clock
+    programma DEPARTURE a clock + nextExp(mu)
+altrimenti:
+    waitingQueue.add(customer)
+```
+
+**`handleDeparture`:**
+```
+customer.departureTime = clock
+stats.recordDeparture(customer)
+se waitingQueue non è vuota:
+    next = waitingQueue.poll()
+    next.serviceStartTime = clock
+    programma DEPARTURE di next a clock + nextExp(mu)
+    // busyServers resta invariato
+altrimenti:
+    busyServers--
+```
+
+> Attenzione al caso limite del warmup: l'update a `warmupTime` va fatto prima di processare l'evento che lo supera, altrimenti l'area dell'intervallo a cavallo viene attribuita in modo sbagliato.
+
+### 5.8 `RunResult`
+
+Risultato di **una replica** (POJO semplice):
+- `double Ls, Lq, Ws, Wq, probWait`
+- `double[] Pk`
+- `int completedCustomers` (utile come controllo di sanità)
+
+### 5.9 `Results`
+
+Aggrega le repliche per ogni coppia (λ, c) e si serializza in JSON.
+
+**Struttura:**
+- `Config config` (copia dei parametri usati)
+- `List<ScenarioResult> scenarios`
+
+**`ScenarioResult`:**
+- `double lambda, mu, rho`, `int c`, `int replications`
+- `MetricSummary Ls, Lq, Ws, Wq, probWait`
+- `double[] PkMean`, `double[] PkCi95`
+
+**`MetricSummary`:** `double mean`, `double ci95` (semi-ampiezza dell'intervallo).
+
+**Calcolo dell'intervallo di confidenza (95%) sulle repliche:**
+- media campionaria `m`, deviazione standard campionaria `s` (divisore n-1)
+- `ci95 = t(n-1) * s / sqrt(n)`
+- per `t` usare una piccola tabella hardcoded per n piccoli (es. n=10 → 2.262) e 1.96 oltre ~30 repliche
+
+### 5.10 `Main`
+
+1. Legge il path della config da `args[0]` (default `config.json`), `Config.load` + `validate`
+2. Doppio ciclo su `cValues` e `lambdaValues`: salta se ρ ≥ 1
+3. Per ogni coppia esegue `replications` simulazioni con seed diversi e raccoglie i `RunResult`
+4. Costruisce `ScenarioResult` (medie + CI)
+5. Scrive `Results` su `outputPath` con Gson (`setPrettyPrinting()`), creando la cartella se manca
+6. Stampa a console un breve riepilogo per ogni scenario (utile per il debug)
+
+---
+
+## 6. Formato del JSON di output
+
+```json
+{
+  "config": { "mu": 1.0, "simulationTime": 100000.0, "warmupTime": 5000.0, "replications": 10, "seed": 42 },
+  "scenarios": [
+    {
+      "lambda": 0.8, "mu": 1.0, "c": 1, "rho": 0.8, "replications": 10,
+      "Ls":       { "mean": 4.02, "ci95": 0.11 },
+      "Lq":       { "mean": 3.22, "ci95": 0.10 },
+      "Ws":       { "mean": 5.01, "ci95": 0.13 },
+      "Wq":       { "mean": 4.01, "ci95": 0.12 },
+      "probWait": { "mean": 0.80, "ci95": 0.01 },
+      "PkMean":   [0.20, 0.16, 0.13, "..."],
+      "PkCi95":   [0.004, 0.003, "..."]
+    }
+  ]
+}
+```
+
+(I valori sono solo un esempio di forma, non risultati reali.)
+
+---
+
+## 7. Script Python (`plot.py`)
+
+**Dipendenze:** `matplotlib`, `numpy`, `json` (standard).
+
+**Funzione teorica** `theory(lam, mu, c, kmax)` che restituisce un dizionario con `P0, Pk[], Pcoda, Lq, Wq, Ws, Ls`.
+
+Con `a = λ/μ` e `ρ = a/c`:
+
+- `P0 = [ Σ_{k=0}^{c-1} a^k/k!  +  a^c / (c!·(1-ρ)) ]^-1`
+- `Pk = P0 · a^k / k!` per `k ≤ c`, e `P0 · a^k / (c! · c^(k-c))` per `k > c`
+- `P(coda) = a^c / (c!·(1-ρ)) · P0` (formula di Erlang C)
+- `Lq = P(coda) · ρ / (1-ρ)`
+- `Wq = Lq / λ`, `Ws = Wq + 1/μ`, `Ls = λ · Ws`
+
+**Grafici da produrre (salvati in `results/`):**
+
+1. **Metriche vs λ**, una figura per metrica (Ls, Lq, Ws, Wq, P(coda)), per ciascun `c`: punti simulati con barre d'errore (`ci95`) + curva teorica continua (calcolata su una griglia fitta di λ)
+2. **Effetto di c** a parità di ρ (confronto tra i diversi valori di `c`, ad esempio su Wq)
+3. **Distribuzione Pk** per un caso fisso (es. c=2, ρ=0.8): barre simulate con CI + punti/linea teorica
+4. (opzionale) **Errore relativo** simulazione/teoria in funzione di ρ, per mostrare che peggiora con ρ→1
+
+---
+
+## 8. Piano di validazione (da fare PRIMA dei grafici)
+
+1. **M/M/1, ρ = 0.5** (λ=0.5, μ=1): attesi Ls = 1, Lq = 0.5, Ws = 2, Wq = 1, P(coda) = 0.5
+2. **Legge di Little** sui risultati simulati: `Ls ≈ λ·Ws` e `Lq ≈ λ·Wq`
+3. **Normalizzazione:** `Σ Pk ≈ 1`
+4. **Coerenza:** `Ls − Lq ≈ λ/μ` (numero medio di server occupati)
+5. **Riproducibilità:** stesso seed ⇒ stessi risultati
+
+---
+
+## 9. Note e punti da commentare nella relazione
+
+- Con ρ → 1 la varianza delle stime esplode e la convergenza è lenta: servono run lunghe, warmup più grande e più repliche.
+- Il warmup serve a eliminare il bias dovuto allo stato iniziale (sistema vuoto).
+- Le repliche indipendenti garantiscono osservazioni i.i.d. su cui calcolare gli intervalli di confidenza (le osservazioni *dentro* una run sono correlate).
+- A parità di ρ, più server riducono l'attesa media (economia di scala del pooling).
+- Il modello è M/M/c puro: nessuna capacità finita, quindi nessuna probabilità di blocco.
+
+---
+
+## 10. Suddivisione del lavoro consigliata (2 persone, 1 settimana)
+
+| Giorno | Attività | Chi |
+|---|---|---|
+| 1-2 | `Config`, `RandomGen`, `Event`, `Customer`, `Simulator` | A |
+| 1-2 | `theory()` in Python + struttura di `plot.py` | B |
+| 3 | `Statistics`, `RunResult`, validazione M/M/1 | A |
+| 3 | Lettura JSON e primi grafici su dati finti | B |
+| 4 | `Results`, repliche, CI, `Main`, sweep completo | A + B |
+| 5-6 | Grafici finali, controlli sul piano di validazione | B (con A) |
+| 7 | Relazione e margine per imprevisti | A + B |

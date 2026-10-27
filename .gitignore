@@ -1,0 +1,7 @@
+target/
+build/
+.idea/
+.vscode/
+*.class
+__pycache__/
+results/*.png

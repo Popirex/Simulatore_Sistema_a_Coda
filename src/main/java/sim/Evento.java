@@ -13,6 +13,10 @@ public class Evento implements Comparable<Evento>{
         this.seq=seq;
     }
 
+    /*
+        Ordina per tempo crescente gli eventi
+        A parità di tempo per ordine di creazione
+    */
     @Override 
     public int compareTo(Evento other){
         int cmp=Double.compare(this.tempo, other.tempo);

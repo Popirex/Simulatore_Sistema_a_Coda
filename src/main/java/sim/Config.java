@@ -17,32 +17,34 @@ public class Config {
     public int maxState;
     public String outputPath;
 
+    // Legge la configurazione dal Json
     public Config load(String path) throws IOException{
         try(Reader reader = new FileReader(path)){
             return new Gson().fromJson(reader, Config.class);
         }
     }
 
+    // Controlla la validità dei parametri
     public void validate(){
         if (mu<=0) {
             throw new IllegalArgumentException("Mu deve essere > 0");
         }
         if (tempoWarmup>tempoSimulazione) {
-            throw new IllegalArgumentException("Warmup Time deve essere < di Simulation Time");
+            throw new IllegalArgumentException("Warmup Time deve essere > di Simulation Time");
         }
         if (ripetizioni<1) {
             throw new IllegalArgumentException("Replications deve essere almeno 1");
         }
-        for (double lamba : valoriLambda) {
-            if (lamba<0) {
-                throw new IllegalArgumentException("Ogni Lamba deve essere > 0");
+        for (double lambda : valoriLambda) {
+            if (lambda<0) {
+                throw new IllegalArgumentException("Ogni Lambda deve essere > 0");
             }
         }
 
         int maxC=0;
 
         for (int c : valoriC) {
-            Math.max(maxC, c);
+           maxC=Math.max(maxC, c);
             if (c<1) {
                 throw new IllegalArgumentException("Ogni C deve essere >= 1");
             }

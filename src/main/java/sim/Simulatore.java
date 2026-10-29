@@ -103,6 +103,50 @@ public class Simulatore {
         clock = nuovoTempo;
     }
 
-    // todo: fare gestione partenza, gestione arrivo e assegnamento server al cliente
-    
+    /*
+        Si controlla se ci sono server liberi, in caso ci siano si fa iniziare il servizio
+        se non ci sono server liberi si aggiunge in coda
+    */
+    public void gestisciArrivo(Evento evento){
+
+        schedulaProssimoArrivo();
+
+        if (serverOccupati < c) {
+            serverOccupati++;
+            iniziaServizio(evento.cliente);
+        }
+        else {
+            codaAttesa.add(evento.cliente);
+        }
+    }
+
+    /*
+        Si prendono i tempi del cliente senza contare quelli del warmup
+        Se ci sono clienti in coda si fanno partire
+    */
+   public void gestisciPartenza(Evento evento){
+
+        Cliente cliente = evento.cliente;
+        cliente.tempoPartenza = clock;
+
+        if (cliente.tempoArrivo >= config.tempoWarmup) {
+            stat.registraCliente(cliente);
+        }
+
+        if (!codaAttesa.isEmpty()) {
+            iniziaServizio(codaAttesa.poll());
+        }
+        else {
+            serverOccupati--;
+        }
+   }
+
+   // Assegna ad un server un cliente e ne programma la sua partenza
+   private void iniziaServizio(Cliente cliente){
+        cliente.tempoInizioServizio = clock;
+
+        double fine = clock + generatore.nextExp(config.mu);
+
+        listaEventi.add(new Evento(fine, TipoEvento.DEPARTURE, cliente, seqEventi++));
+   }
 }

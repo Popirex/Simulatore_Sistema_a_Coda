@@ -23,6 +23,17 @@ public class Statistiche {
         areaCoda += inCoda * dt;
     }
 
+    // Registra il cliente che ha finito il servizio
+    public void registraCliente(Cliente cliente){
+        clientiServiti++;
+        sommaAttesa += cliente.waitingTime();
+        sommaSistema += cliente.systemTime();
+
+        if (cliente.waitingTime() > 0) {
+            clientiAttesi++;
+        }
+    }
+
     public RisultatiRun risultati(double durataOsservata){
         double[] prob = new double[maxState + 1];
         for ( int n = 0; n <= maxState; n++ ){

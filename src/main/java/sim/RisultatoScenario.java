@@ -54,7 +54,34 @@ public class RisultatoScenario {
         }
 
 
+        this.Ls = riassumi(ls);
+        this.Lq = riassumi(lq);
+        this.Ws = riassumi(ws);
+        this.Wq = riassumi(wq);
+        this.probAttesa = riassumi(pa);
+
+        int lunghezza = runs.get(0).getPk().length;
+        this.mediaPk = new double[lunghezza];
+        this.intConf95Pk = new double[lunghezza];
+
+        for(int k = 0; k < lunghezza; k++){
+
+            double[] valori = new double[n];
+
+            for(int i = 0; i < n; i++){
+                valori[i] = runs.get(i).getPk()[k];
+            }
+
+
+            Metriche m = riassumi(valori);
+            mediaPk[k] = m.getMedia();
+            intConf95Pk[k] = m.getIntConfidenza();
+        }
+
+
     }
+
+
 
 
     // funzione per riassumere i dati ottenuti e salvarli in Metriche

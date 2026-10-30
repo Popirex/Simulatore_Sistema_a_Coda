@@ -35,7 +35,7 @@ public class Main {
                 // a ogni iterazione modifico prima il contatore, in modo da avere ogni volta un seme nuovo per la simulazione;
                 contatoreRun++;
                 Simulatore sim = new Simulatore(configurazione, lambda, c, configurazione.seme + contatoreRun);
-                ripetizioni.add(sim.run()); // TODO: SCRIVERE IL METODO RUN -> FAI EFFETTIVAMENTE LA SIMULAZIONE COGLIONE
+                ripetizioni.add(sim.run());
             }
             scenari.add(new RisultatoScenario(lambda, configurazione.mu, c, ripetizioni));
             

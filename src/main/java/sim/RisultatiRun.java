@@ -28,6 +28,10 @@ public class RisultatiRun {
         return this.Ws;
     }
 
+    public double[] getPk(){
+        return this.Pk;
+    }
+
     public double getWq(){
         return this.Wq;
     }

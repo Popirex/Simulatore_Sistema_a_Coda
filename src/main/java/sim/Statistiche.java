@@ -40,7 +40,9 @@ public class Statistiche {
             prob[n] = tempoPerStato[n] / durataOsservata;
         }
 
-        double Ls = areaServizio / durataOsservata;
+        // Ls era sbagliato -> da Ls = areaServizio / durataOsservata a Ls = (areaServizio + areaCoda) / durataOsservata
+        // perchè Ls è la media dei pacchetti in tutto il sistema a coda, ovvero la somma tra quelli che vengono serviti e quelli in coda
+        double Ls = (areaServizio + areaCoda) / durataOsservata;
         double Lq = areaCoda / durataOsservata;
         double Ws = clientiServiti > 0 ? sommaSistema / clientiServiti : 0;
         double Wq = clientiServiti > 0 ? sommaAttesa / clientiServiti : 0;

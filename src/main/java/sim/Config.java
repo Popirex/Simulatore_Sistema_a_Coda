@@ -29,14 +29,14 @@ public class Config {
         if (mu<=0) {
             throw new IllegalArgumentException("Mu deve essere > 0");
         }
-        if (tempoWarmup>tempoSimulazione) {
-            throw new IllegalArgumentException("Warmup Time deve essere > di Simulation Time");
+        if (tempoWarmup>=tempoSimulazione) {
+            throw new IllegalArgumentException("Warmup Time deve essere < di Simulation Time");
         }
         if (ripetizioni<1) {
             throw new IllegalArgumentException("Replications deve essere almeno 1");
         }
         for (double lambda : valoriLambda) {
-            if (lambda<0) {
+            if (lambda<=0) {
                 throw new IllegalArgumentException("Ogni Lambda deve essere > 0");
             }
         }

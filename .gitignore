@@ -1,4 +1,5 @@
 target/
+results/
 build/
 .idea/
 .vscode/

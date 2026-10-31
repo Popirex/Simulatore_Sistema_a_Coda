@@ -1,7 +1,14 @@
 package sim;
 
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class Main {
 
@@ -42,6 +49,42 @@ public class Main {
 
         }
     }
+
+        stampaRisultati(configurazione, scenari);
+
+        
+    }
+
+    public static void stampaRisultati(Config configurazione, List<RisultatoScenario> scenari){
+        RisultatiFinali risultati = new RisultatiFinali(configurazione, scenari);
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        Path pathOutput = Paths.get(configurazione.outputPath);
+
+        try {
+            
+            if(pathOutput.getParent() != null){
+            Files.createDirectories(pathOutput.getParent());
+
+
+            try(Writer w = Files.newBufferedWriter(pathOutput);) {
+                gson.toJson(risultati, w);
+            } catch (Exception e) {
+                System.err.println("Errore con la creazione del writer per il file di output" + e.getMessage());
+                e.printStackTrace();
+                System.exit(4);
+            }
+
+            
+
+            
+
+        }
+
+        } catch (Exception e) {
+            System.err.println("Errore: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(3);
+        }
         
     }
 

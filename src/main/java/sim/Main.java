@@ -38,23 +38,34 @@ public class Main {
 
             List<RisultatiRun> ripetizioni = new ArrayList<>();
 
+
+            //lancio n (ripetizioni) simulazioni con gli stessi parametri per ottenere una quantità sufficiente di dati con ogni preset
+
             for(int i = 0; i < configurazione.ripetizioni; i++){
                 // a ogni iterazione modifico prima il contatore, in modo da avere ogni volta un seme nuovo per la simulazione;
                 contatoreRun++;
+
+                
+                // faccio andare la simulazione e quando ha finito la salvo dentro Scenari ( stessi parametri, piu ripetizioni)
                 Simulatore sim = new Simulatore(configurazione, lambda, c, configurazione.seme + contatoreRun);
                 ripetizioni.add(sim.run());
             }
+
+            // salvo ogni scenario quando ha terminato ( scenario = insieme di n (ripetizioni) con stessi parametri)
             scenari.add(new RisultatoScenario(lambda, configurazione.mu, c, ripetizioni));
             
 
         }
     }
 
+        //salvo i risultati per utilizzarli nella creazione dei grafici
         stampaRisultati(configurazione, scenari);
 
         
     }
 
+
+    // funzione per esportare i dati in un json
     public static void stampaRisultati(Config configurazione, List<RisultatoScenario> scenari){
         RisultatiFinali risultati = new RisultatiFinali(configurazione, scenari);
         Gson gson = new GsonBuilder().setPrettyPrinting().create();

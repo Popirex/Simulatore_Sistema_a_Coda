@@ -43,12 +43,12 @@ public class Simulatore {
             avanzaTempo(evento.tempo);
 
             switch (evento.tipo) {
-                case ARRIVAL:
+                case ARRIVO:
                     
                     gestisciArrivo(evento);
                     break;
             
-                case DEPARTURE:
+                case PARTENZA:
 
                     gestisciPartenza(evento);
                     break;
@@ -83,7 +83,7 @@ public class Simulatore {
     public  void schedulaProssimoArrivo(){
         double t = clock + generatore.nextExp(lambda);
         Cliente nuovoCliente = new Cliente(idProssimoCustomer++, t);
-        listaEventi.add(new Evento(t, TipoEvento.ARRIVAL, nuovoCliente, seqEventi++));
+        listaEventi.add(new Evento(t, TipoEvento.ARRIVO, nuovoCliente, seqEventi++));
     }
 
     /*
@@ -147,6 +147,6 @@ public class Simulatore {
 
         double fine = clock + generatore.nextExp(config.mu);
 
-        listaEventi.add(new Evento(fine, TipoEvento.DEPARTURE, cliente, seqEventi++));
+        listaEventi.add(new Evento(fine, TipoEvento.PARTENZA, cliente, seqEventi++));
    }
 }

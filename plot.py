@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def erlang_c(c, lam, mu):
-    """ Probabilità che un cliente debba aspettare """
+    #Probabilità che un cliente debba aspettare
 
     a = lam/ mu
     rho = a / c
@@ -18,7 +18,7 @@ def erlang_c(c, lam, mu):
     return coda / (somma + coda) 
 
 def teoria(c, lam, mu):
-    """Restituisce le metriche teoriche (Ls, Lq, Ws, Wq, probAttesa)"""
+    #Restituisce le metriche teoriche (Ls, Lq, Ws, Wq, probAttesa)
     pw = erlang_c(c, lam, mu)
     wq = pw / (c * mu - lam)
     return{
@@ -30,7 +30,7 @@ def teoria(c, lam, mu):
     }
 
 def teoria_pk(c, lam, mu, max_state):
-    """ P(k) teoriche per k = 0 ... max_state l'ultima casella è 'max_state o più'"""
+    #P(k) teoriche per k = 0 ... max_state l'ultima casella è 'max_state o più'
     a = lam / mu
     rho = a / c
     somma = sum(a ** k / (math.factorial(k)) for k in range(c))
@@ -50,7 +50,7 @@ def carica(path):
     return dati["configurazione"], dati["risultatiScenari"]
 
 def per_c(scenari):
-    """Raggruppa gli scenari per numero di server, ordinati per lambda"""
+    #Raggruppa gli scenari per numero di server, ordinati per lambda
     gruppi = {}
     for s in scenari:
         gruppi.setdefault(s["c"], []).append(s)
@@ -59,7 +59,7 @@ def per_c(scenari):
     return dict(sorted(gruppi.items()))
 
 def grafico_metriche(gruppi, mu, outdir):
-    """Grafico 1: metriche principali (Ls, Lq, Ws, Wq) in funzione di lambda"""
+    #Grafico 1: metriche principali (Ls, Lq, Ws, Wq) in funzione di lambda
     metriche=[("Ls", "Ls: clienti nel sistema"),
               ("Lq", "Lq: clienti in coda"),
               ("Ws", "Ws: tempo nel sistema"), 
@@ -74,7 +74,7 @@ def grafico_metriche(gruppi, mu, outdir):
             err = np.array([s[nome]["intConfid95"] for s in lista])
             colore = colori(i)
 
-            """Curva teorica solo dove il sistema è stabile"""
+            #Curva teorica solo dove il sistema è stabile
             x = np.linspace(lam.min(), min(lam.max(), 0.999 * c * mu), 200)
             y = [teoria(c, l, mu)[nome] for l in x]
             ax.plot(x, y, color=colore, alpha=0.6)
@@ -82,7 +82,7 @@ def grafico_metriche(gruppi, mu, outdir):
         
         ax.set_title(titolo)
         ax.set_xlabel("λ (tasso di arrivo)")
-        ax.set_yscale("symlog", linthresh=1e-3)
+        ax.set_yscale("symlog", linthresh=1e-5)
         ax.grid(alpha=0.3)
 
     assi[0,0].legend(title="punti = simulazione (IC 95%)\nlinee = teoria")
@@ -92,7 +92,7 @@ def grafico_metriche(gruppi, mu, outdir):
     plt.close(fig)
 
 def grafico_prob_attesa(gruppi, mu, outdir):
-    """Grafico 2: probabilità di attesa"""
+    #Grafico 2: probabilità di attesa
     colori = plt.get_cmap("tab10")
     fig, ax = plt.subplots(figsize=(7, 5))
     for i, (c, lista) in enumerate(gruppi.items()):
@@ -102,7 +102,7 @@ def grafico_prob_attesa(gruppi, mu, outdir):
         x = np.linspace(lam.min(), min(lam.max(), 0.999 * c * mu), 200)
         ax.plot(x, [erlang_c(c, l, mu) for l in x], color=colori(i), alpha=0.6)
         ax.errorbar(lam, sim, yerr=err, fmt="o", color=colori(i), capsize=3, label=f"c = {c}")
-    ax.set_yscale("symlog", linthresh=1e-4)
+    ax.set_yscale("symlog", linthresh=1e-6)
     ax.set_xlabel("λ (tasso di arrivo)")
     ax.set_ylabel("P(attesa > 0)")
     ax.set_title("Probabilità di attesa: simulazione vs Erlang C")
@@ -113,14 +113,14 @@ def grafico_prob_attesa(gruppi, mu, outdir):
     plt.close(fig)
 
 def grafico_pk(scenari, mu, max_state, outdir):
-    """Grafico 3: distribuzione di probabilità di stato P(k)"""
+    #Grafico 3: distribuzione di probabilità di stato P(k)
 
-    """Prendo gli scenari con il rho più alto per ogni c"""
+    #Prendo gli scenari con il rho più alto per ogni c
     gruppi = per_c(scenari)
     scelti = []
     for c, lista in gruppi.items():
         scelti.append(max(lista, key=lambda s: s["rho"]))
-    scelti = scelti[:4] #Massimo 4
+    
 
     n = len(scelti)
     colonne = 2 if n > 1 else 1
@@ -142,20 +142,20 @@ def grafico_pk(scenari, mu, max_state, outdir):
         ax.bar(k, sim[: kmax +1], yerr=err[: kmax + 1], capsize=2, alpha=0.7, label="simulazione (IC 95%)")
         ax.plot(k, teo[: kmax + 1], "ro-", markersize=4, label="teoria")
         ax.set_title(f"c = {c},  λ = {lam}, ρ = {s['rho']:.2f}")
-        ax.set_xlabel=("k (clienti nel sistema)")
-        ax.set_ylabel=("P(k)")
+        ax.set_xlabel("k (clienti nel sistema)")
+        ax.set_ylabel("P(k)")
         ax.legend()
         ax.grid(alpha=0.3)
 
     for ax in list(assi.flat)[n:]:
         ax.axis("off")
-    fig.suptitle("Distruzione degli stati P(k)")
+    fig.suptitle("Distribuzione degli stati P(k)")
     fig.tight_layout()
-    fig.savefig(outdir / "distrubuzione_pk.png", dpi=150)
+    fig.savefig(outdir / "distribuzione_pk.png", dpi=150)
     plt.close(fig)
 
 def stampa_validazione(scenari, mu):
-    """Tabella di validazione in console"""
+    #Tabella di validazione in console
     print(f"{'c':>3} {'lambda':>7} {'rho':>6} | "
           f"{'Ws sim':>8} {'Ws teo':>8} | {'Wq sim':>8} {'Wq teo':>8} | "
           f"{'Pw sim':>7} {'Pw teo':>7}")

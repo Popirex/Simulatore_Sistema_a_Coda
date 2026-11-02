@@ -167,7 +167,7 @@ def stampa_validazione(scenari, mu):
               f"{s['probAttesa']['media']:>7.4f} {t['probAttesa']:>7.4f}")
 
 def main():
-    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("results/results.json")
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("risultati/risultati.json")
     outdir = Path(sys.argv[2]) if len(sys.argv) > 2 else path.parent / "grafici"
     outdir.mkdir(parents=True, exist_ok=True)
 

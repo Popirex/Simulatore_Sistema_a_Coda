@@ -1,5 +1,5 @@
 target/
-results/
+risultati/
 build/
 .idea/
 .vscode/
@@ -7,3 +7,5 @@ build/
 __pycache__/
 results/*.png
 venv/
+.*
+*.odt

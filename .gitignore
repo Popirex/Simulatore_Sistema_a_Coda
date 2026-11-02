@@ -6,3 +6,4 @@ build/
 *.class
 __pycache__/
 results/*.png
+venv/

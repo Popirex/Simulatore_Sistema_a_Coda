@@ -6,7 +6,11 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
+
+LW_TEORIA = 2.8
+MS_SIM = 8
 
 def erlang_c(c, lam, mu):
     #Probabilità che un cliente debba aspettare
@@ -58,6 +62,22 @@ def per_c(scenari):
         gruppi[c].sort(key=lambda s: s["lambda"])
     return dict(sorted(gruppi.items()))
 
+def disegna_serie(ax, colore, lam, sim, err, x, y_teoria):
+    #Teoria: line spessa continua Simulazione: punti vuoti con barre d'errore
+    ax.plot(x, y_teoria, color=colore, linestyle="-", linewidth=LW_TEORIA, alpha=1.0, zorder=2)
+    ax.errorbar(lam, sim, yerr=err, fmt="o", color=colore, markerfacecolor="white", markeredgecolor=colore, markeredgewidth=1.8,
+                markersize=MS_SIM, ecolor=colore, elinewidth=1.2, capsize=3, zorder=3)
+
+def handles(gruppi):
+    #Legenda con un colore per ogni c e due voci che spiegano gli stili
+    colori = plt.get_cmap("tab10")
+    handles = [Line2D([0], [0], color=colori(i), lw=LW_TEORIA, label=f"c = {c}") for i, c in enumerate(gruppi)]
+    handles.append(Line2D([0], [0], color="black", lw=LW_TEORIA, label="Teoria (linea continua)"))
+    handles.append(Line2D([0], [0], color="black", marker="o", linestyle="none", markerfacecolor="white",
+                           markeredgewidth=1.8, markersize=MS_SIM, label="Simulazione (punti, IC 95%)"))
+
+    return handles
+
 def grafico_metriche(gruppi, mu, outdir):
     #Grafico 1: metriche principali (Ls, Lq, Ws, Wq) in funzione di lambda
     metriche=[("Ls", "Ls: clienti nel sistema"),
@@ -77,15 +97,14 @@ def grafico_metriche(gruppi, mu, outdir):
             #Curva teorica solo dove il sistema è stabile
             x = np.linspace(lam.min(), min(lam.max(), 0.999 * c * mu), 200)
             y = [teoria(c, l, mu)[nome] for l in x]
-            ax.plot(x, y, color=colore, alpha=0.6)
-            ax.errorbar(lam, sim, yerr=err, fmt="o", color=colore, capsize=3, label=f"c = {c}")
+            disegna_serie(ax, colore, lam, sim, err, x, y)
         
         ax.set_title(titolo)
         ax.set_xlabel("λ (tasso di arrivo)")
         ax.set_yscale("symlog", linthresh=1e-5)
         ax.grid(alpha=0.3)
 
-    assi[0,0].legend(title="punti = simulazione (IC 95%)\nlinee = teoria")
+    assi[0,0].legend(handles=handles(gruppi), fontsize=9)
     fig.suptitle("Simulazione vs Teoria M/M/c")
     fig.tight_layout()
     fig.savefig(outdir / "metriche.png", dpi=150)
@@ -100,13 +119,13 @@ def grafico_prob_attesa(gruppi, mu, outdir):
         sim = np.array([s["probAttesa"]["media"] for s in lista])
         err= np.array([s["probAttesa"]["intConfid95"] for s in lista])
         x = np.linspace(lam.min(), min(lam.max(), 0.999 * c * mu), 200)
-        ax.plot(x, [erlang_c(c, l, mu) for l in x], color=colori(i), alpha=0.6)
-        ax.errorbar(lam, sim, yerr=err, fmt="o", color=colori(i), capsize=3, label=f"c = {c}")
+        y = [erlang_c(c, l, mu) for l in x]
+        disegna_serie(ax, colori(i), lam, sim, err, x, y)
     ax.set_yscale("symlog", linthresh=1e-6)
     ax.set_xlabel("λ (tasso di arrivo)")
     ax.set_ylabel("P(attesa > 0)")
     ax.set_title("Probabilità di attesa: simulazione vs Erlang C")
-    ax.legend()
+    ax.legend(handles=handles(gruppi), fontsize=9)
     ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(outdir / "prob_attesa.png", dpi=150)
@@ -139,8 +158,12 @@ def grafico_pk(scenari, mu, max_state, outdir):
         kmax = min(kmax, max_state)
         k = np.arange(kmax + 1)
 
-        ax.bar(k, sim[: kmax +1], yerr=err[: kmax + 1], capsize=2, alpha=0.7, label="simulazione (IC 95%)")
-        ax.plot(k, teo[: kmax + 1], "ro-", markersize=4, label="teoria")
+        ax.bar(k, sim[: kmax +1], yerr=err[: kmax + 1], capsize=2, color="#9ecae1", edgecolor="#08519c",
+               linewidth=1.0, alpha=0.85, ecolor="#08519c", error_kw={"elinewidth": 1.2},
+                label="simulazione (IC 95%)", zorder=2)
+        ax.plot(k, teo[: kmax + 1], color="crimson", linestyle="-", linewidth=LW_TEORIA,
+                marker="D", markersize=6, markeredgecolor="black", markeredgewidth=0.8,
+                label="Teoria (linea rossa)", zorder=4)
         ax.set_title(f"c = {c},  λ = {lam}, ρ = {s['rho']:.2f}")
         ax.set_xlabel("k (clienti nel sistema)")
         ax.set_ylabel("P(k)")
